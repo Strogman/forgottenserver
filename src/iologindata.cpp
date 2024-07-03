@@ -14,6 +14,42 @@
 
 extern Game g_game;
 
+uint32_t IOLoginData::gameworldAuthentication(const std::string& accountName, const std::string& password, std::string& characterName)
+{
+	Database& db = Database::getInstance();
+
+	DBResult_ptr result = db.storeQuery(fmt::format("SELECT `id`, `password` FROM `accounts` WHERE `name` = {:s}", db.escapeString(accountName)));
+	if (!result) {
+		return 0;
+	}
+
+	if (transformToSHA1(password) != result->getString("password")) {
+		return 0;
+	}
+
+	uint32_t accountId = result->getNumber<uint32_t>("id");
+
+	result = db.storeQuery(fmt::format("SELECT `name` FROM `players` WHERE `name` = {:s} AND `account_id` = {:d} AND `deletion` = 0", db.escapeString(characterName), accountId));
+	if (!result) {
+		return 0;
+	}
+
+	characterName = result->getString("name");
+	return accountId;
+}
+
+uint32_t IOLoginData::getPlayerIdByPlayerName(const std::string& playerName)
+{
+	Database& db = Database::getInstance();
+
+	DBResult_ptr result = db.storeQuery(
+	    fmt::format("SELECT `id` FROM `players` WHERE `name` = {:s}", db.escapeString(playerName)));
+	if (!result) {
+		return 0;
+	}
+	return result->getNumber<uint32_t>("id");
+}
+
 uint32_t IOLoginData::getAccountIdByPlayerName(const std::string& playerName)
 {
 	Database& db = Database::getInstance();

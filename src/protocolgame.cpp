@@ -1,9 +1,29 @@
 // Copyright 2023 The Forgotten Server Authors. All rights reserved.
 // Use of this source code is governed by the GPL-2.0 License that can be found in the LICENSE file.
+														  
+  
+																	   
+																	   
+																	
+									  
+  
+																  
+																 
+																
+											   
+  
+																		  
+																		  
+															  
+   
 
 #include "otpch.h"
 
 #include "protocolgame.h"
+
+						  
+
+				   
 
 #include "ban.h"
 #include "base64.h"
@@ -21,15 +41,27 @@
 #include "player.h"
 #include "podium.h"
 #include "scheduler.h"
+
 #include "storeinbox.h"
 
+							  
+					   
 extern CreatureEvents* g_creatureEvents;
 extern Chat* g_chat;
 
 namespace {
 
+																					
+
 std::deque<std::pair<int64_t, uint32_t>> waitList; // (timeout, player guid)
 auto priorityEnd = waitList.end();
+																								 
+																							   
+
+																			  
+									
+																										
+  
 
 auto findClient(uint32_t guid)
 {
@@ -39,6 +71,7 @@ auto findClient(uint32_t guid)
 			return std::make_pair(it, slot);
 		}
 	}
+
 	return std::make_pair(waitList.end(), slot);
 }
 
@@ -52,6 +85,8 @@ constexpr int64_t getWaitTime(std::size_t slot)
 		return 20;
 	} else if (slot < 50) {
 		return 60;
+		 
+			 
 	}
 	return 120;
 }
@@ -62,11 +97,29 @@ constexpr int64_t getTimeout(std::size_t slot)
 	return getWaitTime(slot) + 15;
 }
 
+								
+ 
+							 
+
+						
+						   
+						  
+					   
+		  
+		
+   
+  
+ 
+
 std::size_t clientLogin(const Player& player)
 {
+															
 	if (player.hasFlag(PlayerFlag_CanAlwaysLogin) || player.getAccountType() >= ACCOUNT_TYPE_GAMEMASTER) {
 		return 0;
 	}
+
+							   
+					   
 
 	uint32_t maxPlayers = static_cast<uint32_t>(getNumber(ConfigManager::MAX_PLAYERS));
 	if (maxPlayers == 0 || (waitList.empty() && g_game.getPlayersOnline() < maxPlayers)) {
@@ -98,9 +151,12 @@ std::size_t clientLogin(const Player& player)
 		return slot;
 	}
 
+											
 	if (player.isPremium()) {
 		priorityEnd = waitList.emplace(priorityEnd, time + (getTimeout(slot + 1) * 1000), player.getGUID());
 		return std::distance(waitList.begin(), priorityEnd);
+								 
+																							 
 	}
 
 	waitList.emplace_back(time + (getTimeout(waitList.size() + 1) * 1000), player.getGUID());
@@ -156,6 +212,7 @@ void ProtocolGame::login(uint32_t characterId, uint32_t accountId, OperatingSyst
 	Player* foundPlayer = g_game.getPlayerByGUID(characterId);
 	if (!foundPlayer || getBoolean(ConfigManager::ALLOW_CLONES)) {
 		player = new Player(getThis());
+						
 
 		player->incrementReferenceCounter();
 		player->setID();
@@ -188,7 +245,12 @@ void ProtocolGame::login(uint32_t characterId, uint32_t accountId, OperatingSyst
 		}
 
 		if (!player->hasFlag(PlayerFlag_CannotBeBanned)) {
+				   
 			if (const auto& banInfo = IOBan::getAccountBanInfo(accountId)) {
+								 
+							   
+	 
+
 				if (banInfo->expiresAt > 0) {
 					disconnectClient(
 					    fmt::format("Your account has been banned until {:s} by {:s}.\n\nReason specified:\n{:s}",
@@ -341,8 +403,11 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 	OperatingSystem_t operatingSystem = static_cast<OperatingSystem_t>(msg.get<uint16_t>());
 
 	version = msg.get<uint16_t>(); // U16 client version
-	msg.skipBytes(4);              // U32 client version
-
+	
+	if (version > 860) {
+		msg.skipBytes(4);              // U32 client version
+	}
+	
 	// String client version
 	if (version >= 1240) {
 		if (msg.getRemainingBufferLength() > 132) {
@@ -350,8 +415,10 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 		}
 	}
 
-	msg.skipBytes(3); // U16 dat revision, U8 preview state
-
+	if (version > 860) {
+		msg.skipBytes(3); // U16 dat revision, U8 preview state
+	}
+	
 	// Disconnect if RSA decrypt fails
 	if (!Protocol::RSA_decrypt(msg)) {
 		disconnect();
@@ -389,18 +456,32 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 
 	msg.skipBytes(1); // Gamemaster flag
 
-	auto sessionToken = tfs::base64::decode(msg.getString());
-	if (sessionToken.empty()) {
-		disconnectClient("Malformed session key.");
-		return;
+	if (version > 860) {
+		auto sessionToken = tfs::base64::decode(msg.getString());
+		if (sessionToken.empty()) {
+			disconnectClient("Malformed session key.");
+			return;
+		}
+
+		if (operatingSystem == CLIENTOS_QT_LINUX) {
+			msg.getString(); // OS name (?)
+			msg.getString(); // OS version (?)
+		}
 	}
 
-	if (operatingSystem == CLIENTOS_QT_LINUX) {
-		msg.getString(); // OS name (?)
-		msg.getString(); // OS version (?)
+	if (version <= 860) {
+		auto accountName = msg.getString();
+		auto characterName = msg.getString();
+		auto password = msg.getString();
+		
+		if (accountName.empty()) {
+			disconnectClient("You must enter your account name.");
+			return;
+		}
+	}else{
+		auto characterName = msg.getString();
 	}
-
-	auto characterName = msg.getString();
+	
 	uint32_t timeStamp = msg.get<uint32_t>();
 	uint8_t randNumber = msg.getByte();
 	if (challengeTimestamp != timeStamp || challengeRandom != randNumber) {
@@ -408,6 +489,11 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 		return;
 	}
 
+   
+   
+
+																																												
+		   
 	if (g_game.getGameState() == GAME_STATE_STARTUP) {
 		disconnectClient("Gameworld is starting up. Please wait.");
 		return;
@@ -424,30 +510,44 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 		                             formatDateShort(banInfo->expiresAt), banInfo->bannedBy, banInfo->reason));
 		return;
 	}
+	
+	if(version <= 860){
+		
+		uint32_t accountId = IOLoginData::gameworldAuthentication(accountName, password, characterName);
+		if (accountId == 0) {
+			disconnectClient("Account name or password is not correct.");
+			return;
+		}
 
-	Database& db = Database::getInstance();
-	auto result = db.storeQuery(fmt::format(
-	    "SELECT `a`.`id` AS `account_id`, INET6_NTOA(`s`.`ip`) AS `session_ip`, `p`.`id` AS `character_id` FROM `accounts` `a` JOIN `sessions` `s` ON `a`.`id` = `s`.`account_id` JOIN `players` `p` ON `a`.`id` = `p`.`account_id` WHERE `s`.`token` = {:s} AND `s`.`expired_at` IS NULL AND `p`.`name` = {:s} AND `p`.`deletion` = 0",
-	    db.escapeString(sessionToken), db.escapeString(characterName)));
-	if (!result) {
-		disconnectClient("Account name or password is not correct.");
-		return;
+		g_dispatcher.addTask([=, thisPtr = getThis(), characterId = IOLoginData::getPlayerIdByPlayerName(characterName)]() {
+			thisPtr->login(characterId, accountId, operatingSystem);
+		});
+	}else{
+
+		Database& db = Database::getInstance();
+		auto result = db.storeQuery(fmt::format(
+			"SELECT `a`.`id` AS `account_id`, INET6_NTOA(`s`.`ip`) AS `session_ip`, `p`.`id` AS `character_id` FROM `accounts` `a` JOIN `sessions` `s` ON `a`.`id` = `s`.`account_id` JOIN `players` `p` ON `a`.`id` = `p`.`account_id` WHERE `s`.`token` = {:s} AND `s`.`expired_at` IS NULL AND `p`.`name` = {:s} AND `p`.`deletion` = 0",
+			db.escapeString(sessionToken), db.escapeString(characterName)));
+		if (!result) {
+			disconnectClient("Account name or password is not correct.");
+			return;
+		}
+
+		uint32_t accountId = result->getNumber<uint32_t>("account_id");
+		if (accountId == 0) {
+			disconnectClient("Account name or password is not correct.");
+			return;
+		}
+
+		Connection::Address sessionIP = boost::asio::ip::make_address(result->getString("session_ip"));
+		if (!sessionIP.is_loopback() && ip != sessionIP) {
+			disconnectClient("Your game session is already locked to a different IP. Please log in again.");
+		}
+		
+		g_dispatcher.addTask([=, thisPtr = getThis(), characterId = result->getNumber<uint32_t>("character_id")]() {
+			thisPtr->login(characterId, accountId, operatingSystem);
+		});
 	}
-
-	uint32_t accountId = result->getNumber<uint32_t>("account_id");
-	if (accountId == 0) {
-		disconnectClient("Account name or password is not correct.");
-		return;
-	}
-
-	Connection::Address sessionIP = boost::asio::ip::make_address(result->getString("session_ip"));
-	if (!sessionIP.is_loopback() && ip != sessionIP) {
-		disconnectClient("Your game session is already locked to a different IP. Please log in again.");
-	}
-
-	g_dispatcher.addTask([=, thisPtr = getThis(), characterId = result->getNumber<uint32_t>("character_id")]() {
-		thisPtr->login(characterId, accountId, operatingSystem);
-	});
 }
 
 void ProtocolGame::onConnect()
@@ -947,6 +1047,9 @@ bool ProtocolGame::canSee(const Creature* c) const
 }
 
 bool ProtocolGame::canSee(const Position& pos) const { return canSee(pos.x, pos.y, pos.z); }
+			  
+ 
+
 
 bool ProtocolGame::canSee(int32_t x, int32_t y, int32_t z) const
 {
@@ -957,9 +1060,12 @@ bool ProtocolGame::canSee(int32_t x, int32_t y, int32_t z) const
 	const Position& myPos = player->getPosition();
 	if (myPos.z <= 7) {
 		// we are on ground level or above (7 -> 0) view is from 7 -> 0
+										  
 		if (z > 7) {
 			return false;
 		}
+
+														
 	} else { // if (myPos.z >= 8) { we are underground (8 -> 15) view is +/- 2 from the floor we stand on
 		if (std::abs(myPos.getZ() - z) > 2) {
 			return false;
@@ -1239,6 +1345,7 @@ void ProtocolGame::parseSay(NetworkMessage& msg)
 
 		case TALKTYPE_CHANNEL_Y:
 		case TALKTYPE_CHANNEL_R1:
+  
 			channelId = msg.get<uint16_t>();
 			break;
 
@@ -1622,6 +1729,13 @@ void ProtocolGame::sendCreatureLight(const Creature* creature)
 	writeToOutputBuffer(msg);
 }
 
+															  
+ 
+											   
+		 
+  
+
+						 
 void ProtocolGame::sendCreatureWalkthrough(const Creature* creature, bool walkthrough)
 {
 	if (!canSee(creature)) {
@@ -1916,6 +2030,7 @@ void ProtocolGame::sendContainer(uint8_t cid, const Container* container, bool h
 	}
 
 	msg.addByte(container->capacity());
+
 	msg.addByte(hasParent ? 0x01 : 0x00);
 	msg.addByte(0x00);                                     // show search icon (boolean)
 	msg.addByte(container->isUnlocked() ? 0x01 : 0x00);    // Drag and drop
@@ -1930,6 +2045,7 @@ void ProtocolGame::sendContainer(uint8_t cid, const Container* container, bool h
 
 		msg.addByte(itemsToSend);
 		for (auto it = container->getItemList().begin() + firstIndex, end = it + itemsToSend; it != end; ++it) {
+				   
 			msg.addItem(*it);
 		}
 	} else {
@@ -1997,6 +2113,7 @@ void ProtocolGame::sendSaleItemList(const std::list<ShopInfo>& shop)
 
 	NetworkMessage msg;
 	msg.addByte(0x7B);
+										 
 
 	std::map<uint16_t, uint32_t> saleMap;
 
@@ -2022,11 +2139,13 @@ void ProtocolGame::sendSaleItemList(const std::list<ShopInfo>& shop)
 	} else {
 		// Large shop, it's better to get a cached map of all item counts and use it We need a temporary map since the
 		// finished map should only contain items available in the shop
+															
 		std::map<uint32_t, uint32_t> tempSaleMap;
 		player->getAllItemTypeCount(tempSaleMap);
 
 		// We must still check manually for the special items that require subtype matches (That is, fluids such as
 		// potions etc., actually these items are very few since health potions now use their own ID)
+
 		for (const ShopInfo& shopInfo : shop) {
 			if (shopInfo.sellPrice == 0) {
 				continue;
@@ -2425,8 +2544,13 @@ void ProtocolGame::sendCreatureTurn(const Creature* creature, uint32_t stackpos)
 void ProtocolGame::sendCreatureSay(const Creature* creature, SpeakClasses type, const std::string& text,
                                    const Position* pos /* = nullptr*/)
 {
+			 
+ 
+				 
+		 
 	NetworkMessage msg;
 	msg.addByte(0xAA);
+					
 
 	static uint32_t statementId = 0;
 	msg.add<uint32_t>(++statementId);
@@ -2455,8 +2579,13 @@ void ProtocolGame::sendCreatureSay(const Creature* creature, SpeakClasses type, 
 void ProtocolGame::sendToChannel(const Creature* creature, SpeakClasses type, const std::string& text,
                                  uint16_t channelId)
 {
+					
+				   
+								 
+								  
 	NetworkMessage msg;
 	msg.addByte(0xAA);
+				 
 
 	static uint32_t statementId = 0;
 	msg.add<uint32_t>(++statementId);
@@ -2792,6 +2921,14 @@ void ProtocolGame::sendAddCreature(const Creature* creature, const Position& pos
 	sendStats();         // hp, cap, level, xp rate, etc.
 	sendSkills();        // skills and special skills
 	player->sendIcons(); // active conditions
+											
+
+					 
+							 
+
+																								  
+										   
+														 
 
 	// send client info
 	sendClientFeatures(); // player speed, bug reports, store url, pvp mode, etc
@@ -2815,12 +2952,16 @@ void ProtocolGame::sendAddCreature(const Creature* creature, const Position& pos
 
 	// send store inbox
 	sendInventoryItem(CONST_SLOT_STORE_INBOX, player->getStoreInbox()->getItem());
+							  
+			
+							   
 
 	// player light level
 	sendCreatureLight(creature);
 
 	// player vip list
 	sendVIPEntries();
+													
 
 	// tiers for forge and market
 	sendItemClasses();
@@ -3104,9 +3245,11 @@ void ProtocolGame::sendOutfitWindow()
 
 	std::vector<ProtocolOutfit> protocolOutfits;
 	if (player->isAccessPlayer()) {
+		
 		protocolOutfits.emplace_back("Gamemaster", 75, 0);
 	}
 
+			
 	for (const Outfit& outfit : outfits) {
 		uint8_t addons;
 		if (!player->getOutfitAddons(outfit, addons)) {
@@ -3545,6 +3688,9 @@ void ProtocolGame::AddPlayerStats(NetworkMessage& msg)
 {
 	msg.addByte(0xA0);
 
+   
+			  
+						 
 	msg.add<uint32_t>(static_cast<uint32_t>(player->getHealth()));
 	msg.add<uint32_t>(static_cast<uint32_t>(player->getMaxHealth()));
 
@@ -3563,7 +3709,9 @@ void ProtocolGame::AddPlayerStats(NetworkMessage& msg)
 	msg.add<uint32_t>(static_cast<uint32_t>(player->getMaxMana()));
 
 	msg.addByte(player->getSoul());
+			
 	msg.add<uint16_t>(player->getStaminaMinutes());
+										  
 	msg.add<uint16_t>(player->getBaseSpeed() / 2);
 
 	Condition* condition = player->getCondition(CONDITION_REGENERATION, CONDITIONID_DEFAULT);
@@ -3625,6 +3773,7 @@ void ProtocolGame::AddOutfit(NetworkMessage& msg, const Outfit_t& outfit)
 {
 	// outfit
 	msg.add<uint16_t>(outfit.lookType);
+									  
 	if (outfit.lookType != 0) {
 		msg.addByte(outfit.lookHead);
 		msg.addByte(outfit.lookBody);

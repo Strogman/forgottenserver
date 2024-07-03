@@ -1,3 +1,16 @@
+git clone https://github.com/Strogman/poketfs17
+cd poketfs17
+git branch -a
+git checkout -b 860
+git add .
+git commit -m "860"
+git push origin 860
+
+git checkout main
+git merge mi_nueva_rama
+git push origin main
+
+
 forgottenserver [![Build Status](https://github.com/otland/forgottenserver/actions/workflows/build-vcpkg.yml/badge.svg?branch=master)](https://github.com/otland/forgottenserver/actions/workflows/build-vcpkg.yml "vcpkg build status") [![Build Status](https://github.com/otland/forgottenserver/actions/workflows/docker-image.yml/badge.svg?branch=master)](https://github.com/otland/forgottenserver/actions/workflows/docker-image.yml "Docker image build status")
 ===============
 
