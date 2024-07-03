@@ -103,6 +103,8 @@ private:
 	void parseBugReport(NetworkMessage& msg);
 	void parseDebugAssert(NetworkMessage& msg);
 	void parseRuleViolationReport(NetworkMessage& msg);
+	
+	void sendWorldLight(LightInfo lightInfo);
 
 	void parseThrow(NetworkMessage& msg);
 	void parseUseItemEx(NetworkMessage& msg);
@@ -222,8 +224,8 @@ private:
 	void sendPodiumWindow(const Item* item);
 
 	void sendUpdatedVIPStatus(uint32_t guid, VipStatus_t newStatus);
-	void sendVIP(uint32_t guid, const std::string& name, const std::string& description, uint32_t icon, bool notify,
-	             VipStatus_t status);
+	void sendVIP(uint32_t guid, const std::string& name, const std::string& description, uint32_t icon = 0,
+	             bool notify = false, VipStatus_t status = VIPSTATUS_ONLINE);
 	void sendVIPEntries();
 
 	void sendItemClasses();

@@ -211,7 +211,10 @@ public:
 	size_t getMonstersOnline() const { return monsters.size(); }
 	size_t getNpcsOnline() const { return npcs.size(); }
 	uint32_t getPlayersRecord() const { return playersRecord; }
-
+	LightInfo getWorldLightInfo() const {
+		return {lightLevel, lightColor};
+	}
+		
 	ReturnValue internalMoveCreature(Creature* creature, Direction direction, uint32_t flags = 0);
 	ReturnValue internalMoveCreature(Creature& creature, Tile& toTile, uint32_t flags = 0);
 
@@ -533,6 +536,11 @@ private:
 	std::unordered_set<Tile*> tilesToClean;
 
 	ModalWindow offlineTrainingWindow{std::numeric_limits<uint32_t>::max(), "Choose a Skill", "Please choose a skill:"};
+
+	static constexpr uint8_t LIGHT_DAY = 250;
+	uint8_t lightLevel = LIGHT_DAY;
+	uint8_t lightColor = 215;
+	int16_t worldTime = 0;
 
 	GameState_t gameState = GAME_STATE_NORMAL;
 	WorldType_t worldType = WORLD_TYPE_PVP;

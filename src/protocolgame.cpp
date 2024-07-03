@@ -458,8 +458,9 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 
 	msg.skipBytes(1); // Gamemaster flag
 
+	std::string sessionToken;
 	if (version > 860) {
-		auto sessionToken = tfs::base64::decode(msg.getString());
+		sessionToken = tfs::base64::decode(msg.getString());
 		if (sessionToken.empty()) {
 			disconnectClient("Malformed session key.");
 			return;
@@ -470,18 +471,20 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 			msg.getString(); // OS version (?)
 		}
 	}
-
+	std::string accountName;
+	std::string characterName;
+	std::string password;
 	if (version <= 860) {
-		auto accountName = msg.getString();
-		auto characterName = msg.getString();
-		auto password = msg.getString();
+		accountName = msg.getString();
+		characterName = msg.getString();
+		password = msg.getString();
 		
 		if (accountName.empty()) {
 			disconnectClient("You must enter your account name.");
 			return;
 		}
 	}else{
-		auto characterName = msg.getString();
+		characterName = msg.getString();
 	}
 	
 	uint32_t timeStamp = msg.get<uint32_t>();
@@ -1179,8 +1182,9 @@ void ProtocolGame::parseAutoWalk(NetworkMessage& msg)
 
 void ProtocolGame::parseSetOutfit(NetworkMessage& msg)
 {
+	uint8_t outfitType;
 	if(CLIENT_VERSION_MAX > 860) {
-		uint8_t outfitType = msg.getByte();
+		outfitType = msg.getByte();
 	}
 
 	Outfit_t newOutfit;
@@ -2641,10 +2645,10 @@ void ProtocolGame::sendToChannel(const Creature* creature, SpeakClasses type, co
 
 	NetworkMessage msg;
 	msg.addByte(0xAA);
-	if(CLIENT_VERSION_MAX > 860){	
+	if (CLIENT_VERSION_MAX <= 860) {	
 		msg.add<uint32_t>(0x00);
 
-		if (type == TALKTYPE_CHANNEL_R2) {
+		/* if (type == TALKTYPE_CHANNEL_R2) {
 			msg.addString("");
 			type = TALKTYPE_CHANNEL_R1;
 							  
@@ -2652,7 +2656,7 @@ void ProtocolGame::sendToChannel(const Creature* creature, SpeakClasses type, co
 							  
 													  
 										  
-		} else {
+		} else {*/
 			msg.addString(creature->getName());
 															   
 
@@ -2662,7 +2666,7 @@ void ProtocolGame::sendToChannel(const Creature* creature, SpeakClasses type, co
 			} else {
 				msg.add<uint16_t>(0x00);
 			}
-		}
+		//}
 	}else{
 
 		static uint32_t statementId = 0;
@@ -3078,9 +3082,9 @@ void ProtocolGame::sendAddCreature(const Creature* creature, const Position& pos
 
 		writeToOutputBuffer(msg);
 		sendMapDescription(pos);			 
-		if (isLogin) {
+		/* if (isLogin) {
 			sendMagicEffect(pos, CONST_ME_TELEPORT);
-		}
+		}*/
 
 					  
 		for (int i = CONST_SLOT_FIRST; i <= CONST_SLOT_LAST; ++i) {
@@ -3096,12 +3100,14 @@ void ProtocolGame::sendAddCreature(const Creature* creature, const Position& pos
 		//player light level
 		sendCreatureLight(creature);
 
-		const std::forward_list<VIPEntry>& vipEntries = IOLoginData::getVIPEntries(player->getAccount());
+		/* const std::forward_list<VIPEntry>& vipEntries = IOLoginData::getVIPEntries(player->getAccount());
 		for (const VIPEntry& entry : vipEntries) {
 			Player* vipPlayer = g_game.getPlayerByGUID(entry.guid);
 
 			sendVIP(entry.guid, entry.name, static_cast<VipStatus_t>((vipPlayer && (!vipPlayer->isInGhostMode() || player->isAccessPlayer()))));
-		}
+		}*/
+
+		sendVIPEntries();
 
 						 
 		player->sendIcons();
@@ -3370,13 +3376,13 @@ void ProtocolGame::sendOutfitWindow()
 		currentOutfit = newOutfit;
 	}
 
+	bool mounted;
 	if(CLIENT_VERSION_MAX > 860){
 		Mount* currentMount = g_game.mounts.getMountByID(player->getCurrentMount());
 		if (currentMount) {
 			currentOutfit.lookMount = currentMount->clientId;
 		}
-
-		bool mounted;
+		
 		if (player->wasMounted) {
 			mounted = currentOutfit.lookMount != 0;
 		} else {
@@ -3747,13 +3753,15 @@ void ProtocolGame::sendSessionEnd(SessionEndTypes_t reason)
 ////////////// Add common messages
 void ProtocolGame::AddCreature(NetworkMessage& msg, const Creature* creature, bool known, uint32_t remove)
 {
+	CreatureType_t creatureType;
 	if(CLIENT_VERSION_MAX > 860)
-		CreatureType_t creatureType = creature->getType();
+		creatureType = creature->getType();
 	
 	const Player* otherPlayer = creature->getPlayer();
+	uint32_t masterId = 0;
 	if(CLIENT_VERSION_MAX > 860){
 		const Player* masterPlayer = nullptr;
-		uint32_t masterId = 0;
+		
 
 		if (creatureType == CREATURETYPE_MONSTER) {
 			const Creature* master = creature->getMaster();

@@ -38,7 +38,7 @@ uint32_t IOLoginData::gameworldAuthentication(const std::string& accountName, co
 	return accountId;
 }
 
-uint32_t IOLoginData::getPlayerIdByPlayerName(const std::string& playerName)
+uint32_t IOLoginData::getPlayerIdByPlayerName(const std::string playerName)
 {
 	Database& db = Database::getInstance();
 

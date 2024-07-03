@@ -1,3 +1,4 @@
+#include "otpch.h"
 #include "error.h"
 
 namespace beast = boost::beast;
